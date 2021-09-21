@@ -12,7 +12,6 @@ ext {
   sparkVersion = '3.0.0'
 }
 
-
 dependencies {
     implementation "org.apache.spark:spark-core_${scalaVersion}:${sparkVersion}"
     implementation "com.google.privacy.differentialprivacy:differentialprivacy:${differentialPrivacyVersion}"
