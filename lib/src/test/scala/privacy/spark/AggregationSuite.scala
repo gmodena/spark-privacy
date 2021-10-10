@@ -7,32 +7,36 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.junit.runner.RunWith
 import org.scalatestplus.junit.JUnitRunner
 import com.holdenkarau.spark.testing.DataFrameSuiteBase
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, Row, functions}
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.{Dataset, functions}
 
-case class Visitors(schema: StructType, data: Seq[Row])
+case class DayVisitor(VisitorId: String,
+                      TimeEntered: String,
+                      TimeSpent: Int,
+                      MoneySpent: Double,
+                      Day: Int)
 
 @RunWith(classOf[JUnitRunner])
 class AggregationSuiteCheck extends AnyFunSuite with DataFrameSuiteBase {
-  val visitors = Visitors(
-    schema = StructType(List(StructField("VisitorId", StringType, nullable = true),
-      StructField("TimeEntered", StringType, nullable = true),
-      StructField("TimeSpent", StringType, nullable = true),
-      StructField("MoneySpent", StringType, nullable = true),
-      StructField("Day", StringType, nullable = true))),
-    data = List(Row("1", "9:30:00 AM", "26", "24", "1"),
-      Row("2", "10d:30:00 AM", "10", "1", "1"),
-      Row("3", "10d:30:00 AM", "10", "1", "1"),
-      Row("4", "10d:30:00 AM", "10", "1", "1"),
-      Row("5", "10d:30:00 AM", "10", "1", "2"),
-      Row("6", "10d:30:00 AM", "10", "1", "2")))
+  import spark.implicits._
+
+  val maxContributions = 3
+  val maxContributionsPerPartition = 3
+  val epsilon = 1
+  val lower = -10
+  val upper = 10
+
+  val dayVisitors = Seq(
+    DayVisitor("1", "9:30:00 AM", 26, 24.0, 1),
+    DayVisitor("1", "9:30:00 AM", 26, 24.0, 1),
+    DayVisitor("3", "10d:30:00 AM", 10, 1.0, 1),
+    DayVisitor("4", "10d:30:00 AM", 10, 1.0, 1),
+    DayVisitor("5", "10d:30:00 AM", 10, 1.0, 2),
+    DayVisitor("6", "10d:30:00 AM", 10, 1.0, 2))
 
   test("Basic contribution bounding is applied to filter a DataFrame and limit records" +
     "Test that at most `maxContributions` occurrences of Day 1 records are present in `dataFrame`") {
-    val rdd: RDD[Row] = spark.sparkContext.parallelize(visitors.data)
-    val dataFrame = spark.createDataFrame(rdd, visitors.schema)
-    val maxContributions = 3
+    val dataset: Dataset[DayVisitor] = spark.createDataset(dayVisitors)
+    val dataFrame = dataset.toDF()
 
     val dayContributions = dataFrame
       .transform(BoundContribution("Day", maxContributions))
@@ -42,19 +46,72 @@ class AggregationSuiteCheck extends AnyFunSuite with DataFrameSuiteBase {
   }
 
   test("A private count with contribution bounding can be performed") {
-    val rdd: RDD[Row] = spark.sparkContext.parallelize(visitors.data)
-    val dataFrame = spark.createDataFrame(rdd, visitors.schema)
+    val dataset: Dataset[DayVisitor] = spark.createDataset(dayVisitors)
+    val dataFrame = dataset.toDF()
 
-    val maxContributions = 3
-    val epsilon = 1
+    val privateCount = new PrivateCount[Long](epsilon, maxContributions)
 
-    val privateCount = new PrivateCount(epsilon, maxContributions)
-    dataFrame.transform(BoundContribution("Day", maxContributions))
+    // Apply on a typed Dataset
+    assert(dataset.select("Day").agg(privateCount.toColumn.name("Count")).collect.length > 0)
+    assert(dataset.groupBy("Day").agg(privateCount.toColumn.name("Count")).collect.length > 0)
 
-    assert(dataFrame.groupBy("Day").agg(privateCount.toColumn.name("cnt")).count.toInt > 0)
+    // Apply on an untyped Dataset
+    val privateCountUdf = functions.udaf(privateCount)
+    assert(dataFrame.groupBy("Day").agg(privateCountUdf($"VisitorId")).collectAsList().size() == 2)
 
     spark.udf.register("privateCount", functions.udaf(privateCount))
     dataFrame.createOrReplaceTempView("test_table")
-    assert(spark.sql("SELECT Day, privateCount(VisitorId) as cnt FROM test_table group by Day").count.toInt > 0)
+    assert(spark.sql("SELECT Day, privateCount(VisitorId) as cnt FROM test_table group by Day").collectAsList().size() == 2)
+  }
+
+  test("A private sum with contribution bounding can be performed") {
+    val dataset: Dataset[DayVisitor] = spark.createDataset(dayVisitors)
+    val dataFrame = dataset.toDF()
+
+    val privateSum = new PrivateSum[Double](epsilon, maxContributions, lower, upper)
+    val privateSumCol = privateSum.toColumn.name("Sum")
+
+    // Apply on an untyped Dataset
+    val privateSumUdf = functions.udaf(privateSum)
+    assert(dataFrame.groupBy("Day").agg(privateSumUdf($"MoneySpent")).collectAsList().size() == 2)
+
+    spark.udf.register("privateSum", privateSumUdf)
+    dataFrame.createOrReplaceTempView("test_table")
+
+    assert(spark.sql("SELECT Day, privateSum(MoneySpent) as sum FROM test_table group by Day").collectAsList().size() > 0)
+  }
+
+  test("A private mean with contribution bounding can be performed") {
+    val dataset: Dataset[DayVisitor] = spark.createDataset(dayVisitors)
+    val dataFrame = dataset.toDF()
+
+
+    val privateMean = new PrivateMean[Double](epsilon, maxContributions, maxContributionsPerPartition, lower, upper)
+
+    // Apply on an untyped Dataset
+    val privateMeanUdf = functions.udaf(privateMean)
+    assert(dataFrame.groupBy("Day").agg(privateMeanUdf($"MoneySpent")).collectAsList().size() == 2)
+
+    spark.udf.register("privateMean", privateMeanUdf)
+    dataFrame.createOrReplaceTempView("test_table")
+
+    assert(spark.sql("SELECT Day, privateMean(MoneySpent) as mean FROM test_table group by Day").collectAsList().size() > 0)
+  }
+
+  test("A private quantiles aggregation with contribution bounding can be performed") {
+    val dataset: Dataset[DayVisitor] = spark.createDataset(dayVisitors)
+    val dataFrame = dataset.toDF()
+
+
+    val privateQuantiles = new PrivateQuantiles[Double](epsilon, maxContributions, maxContributionsPerPartition, lower, upper)
+
+    // Apply on an untyped Dataset
+    val privateQuantilesUdf= functions.udaf(privateQuantiles)
+    assert(dataFrame.groupBy("Day").agg(privateQuantilesUdf($"MoneySpent")).collectAsList().size() == 2)
+
+    spark.udf.register("privateQuantiles", privateQuantilesUdf)
+    dataFrame.createOrReplaceTempView("test_table")
+
+    assert(spark.sql("SELECT Day, privateQuantiles(MoneySpent) as mean FROM test_table group by Day").collectAsList().size() > 0)
   }
 }

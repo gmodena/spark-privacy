@@ -1,5 +1,5 @@
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.functions.{col, count}
+import org.apache.spark.sql.functions.{col, count, udaf}
 import privacy.spark.{BoundContribution, PrivateCount}
 
 object DayCount extends App {
@@ -9,6 +9,7 @@ object DayCount extends App {
   val spark:SparkSession = SparkSession.builder()
     .appName("DayCount")
     .getOrCreate()
+  import spark.implicits._
 
   val epsilon = Math.log(3)
   val maxContributions = 5
@@ -19,8 +20,10 @@ object DayCount extends App {
     .csv(DayDataCsv)
 
   val privateCount = new PrivateCount(epsilon, maxContributions)
+  val privateCountUdf = udaf.register(privateCount)
 
   dataFrame.transform(BoundContribution("Day", maxContributions))
-    .groupBy("Day").agg(count(col("Day")), privateCount.toColumn.name("private_count"))
+    .groupBy("Day")
+    .agg(privateCountUdf($"VisitorId"))
     .show
 }
