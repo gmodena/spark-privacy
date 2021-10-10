@@ -128,12 +128,3 @@ object BoundContribution {
       .drop(tmpCol)
   }
 }
-//
-//object countUdf {
-//  def apply(epsilon: Double, contribution: Int) = {
-//    import org.apache.spark.sql.functions.udaf
-//    val cnt = new PrivateCount(epsilon = epsilon,contribution = contribution)
-//    val tmp = udaf(cnt)
-//    tmp
-//  }
-//}
