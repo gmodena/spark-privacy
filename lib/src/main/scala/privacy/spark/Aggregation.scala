@@ -118,6 +118,7 @@ class PrivateQuantiles[T: Numeric](epsilon: Double, contribution: Int, maxContri
   override def outputEncoder: Encoder[Double] = Encoders.scalaDouble
 }
 
+
 object BoundContribution {
   def apply(key: String, privacyKey: String, contributions: Int)(dataFrame: DataFrame): DataFrame =  {
     val byCol = Window.partitionBy(key, privacyKey)
@@ -129,4 +130,11 @@ object BoundContribution {
       .where(col(tmpCol) <= contributions)
       .drop(tmpCol)
   }
+}
+
+object aggregations {
+  def privateCount[T](epsilon: Double, contribution: Int) = new PrivateCount[T](epsilon, contribution)
+  def privateSum[T: Numeric](epsilon: Double, contribution: Int, lower: Double, upper: Double) = new PrivateSum[T](epsilon, contribution, lower, upper)
+  def privateMean[T: Numeric](epsilon: Double, contribution: Int, maxContributionsPerPartition: Int, lower: Double, upper: Double) = new PrivateMean[T](epsilon, contribution, maxContributionsPerPartition, lower, upper)
+  def privateQuantiles[T: Numeric](epsilon: Double, contribution: Int, maxContributionsPerPartition: Int, lower: Double, upper: Double, rank: Double = 1.0) = new PrivateQuantiles(epsilon, contribution, maxContributionsPerPartition, lower, upper)
 }
