@@ -26,21 +26,29 @@ class AggregationSuiteCheck extends AnyFunSuite with DataFrameSuiteBase {
   val upper = 10
 
   val dayVisitors = Seq(
-    DayVisitor("1", "9:30:00 AM", 26, 24.0, 1),
-    DayVisitor("1", "9:30:00 AM", 26, 24.0, 1),
+    DayVisitor("1", "8:30:00 AM", 26, 24.0, 1),
+    DayVisitor("1", "9:30:00 AM", 26, 25.0, 1),
+    DayVisitor("1", "10:30:00 AM", 26, 26.0, 1),
+    DayVisitor("1", "11:30:00 AM", 26, 27.0, 1),
+    DayVisitor("1", "12:30:00 AM", 26, 28.0, 1),
+    DayVisitor("1", "13:30:00 AM", 26, 29.0, 1),
     DayVisitor("3", "10d:30:00 AM", 10, 1.0, 1),
     DayVisitor("4", "10d:30:00 AM", 10, 1.0, 1),
     DayVisitor("5", "10d:30:00 AM", 10, 1.0, 2),
     DayVisitor("6", "10d:30:00 AM", 10, 1.0, 2))
 
-  test("Basic contribution bounding is applied to filter a DataFrame and limit records" +
-    "Test that at most `maxContributions` occurrences of Day 1 records are present in `dataFrame`") {
+  test("Basic contribution bounding is applied to filter a DataFrame and limit records." +
+    "Test that at most `maxContributions` occurrences of `VisitorId` per (an arbitrary) day " +
+    "are present in `dataFrame`") {
     val dataset: Dataset[DayVisitor] = spark.createDataset(dayVisitors)
     val dataFrame = dataset.toDF()
 
+    val partitionKey = "Day"
+    val privacyUnitKey = "VisitorId"
+
     val dayContributions = dataFrame
-      .transform(BoundContribution("Day", maxContributions))
-      .where("Day = 1")
+      .transform(BoundContribution(partitionKey, privacyUnitKey, maxContributions))
+      .where("Day = 1 and VisitorId = 1")
       .count.toInt
     assert(dayContributions === maxContributions)
   }

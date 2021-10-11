@@ -22,7 +22,8 @@ object DayCount extends App {
   val privateCount = new PrivateCount(epsilon, maxContributions)
   val privateCountUdf = udaf.register(privateCount)
 
-  dataFrame.transform(BoundContribution("Day", maxContributions))
+  // Restrict `maxContributions` of `VisitoryId` per `Day`.
+  dataFrame.transform(BoundContribution("Day", "VisitorId", maxContributions))
     .groupBy("Day")
     .agg(privateCountUdf($"VisitorId"))
     .show

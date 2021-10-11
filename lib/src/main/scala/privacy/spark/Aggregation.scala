@@ -13,7 +13,7 @@ package privacy.spark
 
 import org.apache.spark.sql.{DataFrame, Encoder, Encoders}
 import com.google.privacy.differentialprivacy.{BoundedMean, BoundedQuantiles, BoundedSum, Count}
-import org.apache.spark.sql.functions.{col, row_number}
+import org.apache.spark.sql.functions.{col, rand, row_number}
 import org.apache.spark.sql.expressions.{Aggregator, Window}
 
 class PrivateCount[T](epsilon: Double, contribution: Int) extends Aggregator[T, Count, Long] {
@@ -119,12 +119,13 @@ class PrivateQuantiles[T: Numeric](epsilon: Double, contribution: Int, maxContri
 }
 
 object BoundContribution {
-  def apply(key: String, contributions: Int)(dataFrame: DataFrame): DataFrame =  {
-    val byCol = Window.partitionBy(key)
+  def apply(key: String, privacyKey: String, contributions: Int)(dataFrame: DataFrame): DataFrame =  {
+    val byCol = Window.partitionBy(key, privacyKey)
 
     val tmpCol = "boundCount"
     dataFrame
-      .withColumn(tmpCol, row_number over byCol.orderBy(key))
+      .orderBy(rand()) // TODO(gmodena): how secure is this?
+      .withColumn(tmpCol, row_number over byCol.orderBy(key, privacyKey))
       .where(col(tmpCol) <= contributions)
       .drop(tmpCol)
   }
