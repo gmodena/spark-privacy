@@ -19,7 +19,7 @@ object DayCount extends App {
     .option("header", "true")
     .csv(DayDataCsv)
 
-  val privateCount = new PrivateCount(epsilon, maxContributions)
+  val privateCount = new PrivateCount[Long](epsilon, maxContributions)
   val privateCountUdf = udaf.register(privateCount)
 
   // Restrict `maxContributions` of `VisitoryId` per `Day`.
