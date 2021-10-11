@@ -92,10 +92,11 @@ class PrivateMean[T : Numeric](epsilon: Double, contribution: Int, maxContributi
   override def outputEncoder: Encoder[Double] = Encoders.scalaDouble
 }
 
-class PrivateQuantiles[T: Numeric](epsilon: Double, contribution: Int,  lower: Double, upper: Double, rank: Double) extends Aggregator[T, BoundedQuantiles, Double] {
+class PrivateQuantiles[T: Numeric](epsilon: Double, contribution: Int, maxContributionsPerPartition: Int, lower: Double, upper: Double, rank: Double = 1.0) extends Aggregator[T, BoundedQuantiles, Double] {
   override def zero: BoundedQuantiles = BoundedQuantiles
     .builder()
     .maxPartitionsContributed(contribution)
+    .maxContributionsPerPartition(maxContributionsPerPartition)
     .epsilon(epsilon)
     .lower(lower)
     .upper(upper)
@@ -128,3 +129,12 @@ object BoundContribution {
       .drop(tmpCol)
   }
 }
+//
+//object countUdf {
+//  def apply(epsilon: Double, contribution: Int) = {
+//    import org.apache.spark.sql.functions.udaf
+//    val cnt = new PrivateCount(epsilon = epsilon,contribution = contribution)
+//    val tmp = udaf(cnt)
+//    tmp
+//  }
+//}
