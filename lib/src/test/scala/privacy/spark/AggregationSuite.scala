@@ -20,22 +20,22 @@ class AggregationSuiteCheck extends AnyFunSuite with DataFrameSuiteBase {
   import spark.implicits._
 
   val maxContributions = 3
-  val maxContributionsPerPartition = 3
+  val maxContributionsPerPartition = 1
   val epsilon = 1
   val lower = -10
   val upper = 10
 
   val dayVisitors = Seq(
     DayVisitor("1", "8:30:00 AM", 26, 24.0, 1),
-    DayVisitor("1", "9:30:00 AM", 26, 25.0, 1),
-    DayVisitor("1", "10:30:00 AM", 26, 26.0, 1),
-    DayVisitor("1", "11:30:00 AM", 26, 27.0, 1),
-    DayVisitor("1", "12:30:00 AM", 26, 28.0, 1),
-    DayVisitor("1", "13:30:00 AM", 26, 29.0, 1),
+    DayVisitor("1", "9:30:00 AM", 10, 10.0, 1),
+    DayVisitor("2", "13:30:00 AM", 26, 29.0, 1),
     DayVisitor("3", "10d:30:00 AM", 10, 1.0, 1),
     DayVisitor("4", "10d:30:00 AM", 10, 1.0, 1),
+    DayVisitor("1", "8:30:00 AM", 26, 24.0, 2),
     DayVisitor("5", "10d:30:00 AM", 10, 1.0, 2),
-    DayVisitor("6", "10d:30:00 AM", 10, 1.0, 2))
+    DayVisitor("6", "10d:30:00 AM", 10, 1.0, 2),
+    DayVisitor("1", "8:30:00 AM", 26, 24.0, 3),
+    DayVisitor("1", "8:30:00 AM", 26, 24.0, 4))
 
   test("Basic contribution bounding is applied to filter a DataFrame and limit records." +
     "Test that at most `maxContributions` occurrences of `VisitorId` per (an arbitrary) day " +
@@ -46,11 +46,19 @@ class AggregationSuiteCheck extends AnyFunSuite with DataFrameSuiteBase {
     val partitionKey = "Day"
     val privacyUnitKey = "VisitorId"
 
+
     val dayContributions = dataFrame
-      .transform(BoundContribution(partitionKey, privacyUnitKey, maxContributions))
-      .where("Day = 1 and VisitorId = 1")
+      .transform(BoundContribution(partitionKey, privacyUnitKey, maxContributions, maxContributionsPerPartition))
+      .where("VisitorId = 1")
       .count.toInt
     assert(dayContributions === maxContributions)
+
+    val maxDailyContributions = dataFrame
+      .transform(BoundContribution(partitionKey, privacyUnitKey, maxContributions, maxContributionsPerPartition))
+      .where("VisitorId = 1 and Day =1")
+      .count.toInt
+
+    assert(Math.max(1, maxDailyContributions) === maxContributionsPerPartition)
   }
 
   test("A private count with contribution bounding can be performed") {
@@ -65,11 +73,11 @@ class AggregationSuiteCheck extends AnyFunSuite with DataFrameSuiteBase {
 
     // Apply on an untyped Dataset
     val privateCountUdf = functions.udaf(privateCount)
-    assert(dataFrame.groupBy("Day").agg(privateCountUdf($"VisitorId")).collectAsList().size() == 2)
+    assert(dataFrame.groupBy("Day").agg(privateCountUdf($"VisitorId")).collectAsList().size() == 4)
 
     spark.udf.register("privateCount", functions.udaf(privateCount))
     dataFrame.createOrReplaceTempView("test_table")
-    assert(spark.sql("SELECT Day, privateCount(VisitorId) as cnt FROM test_table group by Day").collectAsList().size() == 2)
+    assert(spark.sql("SELECT Day, privateCount(VisitorId) as cnt FROM test_table group by Day").collectAsList().size() == 4)
   }
 
   test("A private sum with contribution bounding can be performed") {
@@ -81,7 +89,7 @@ class AggregationSuiteCheck extends AnyFunSuite with DataFrameSuiteBase {
 
     // Apply on an untyped Dataset
     val privateSumUdf = functions.udaf(privateSum)
-    assert(dataFrame.groupBy("Day").agg(privateSumUdf($"MoneySpent")).collectAsList().size() == 2)
+    assert(dataFrame.groupBy("Day").agg(privateSumUdf($"MoneySpent")).collectAsList().size() == 4)
 
     spark.udf.register("privateSum", privateSumUdf)
     dataFrame.createOrReplaceTempView("test_table")
@@ -98,7 +106,7 @@ class AggregationSuiteCheck extends AnyFunSuite with DataFrameSuiteBase {
 
     // Apply on an untyped Dataset
     val privateMeanUdf = functions.udaf(privateMean)
-    assert(dataFrame.groupBy("Day").agg(privateMeanUdf($"MoneySpent")).collectAsList().size() == 2)
+    assert(dataFrame.groupBy("Day").agg(privateMeanUdf($"MoneySpent")).collectAsList().size() == 4)
 
     spark.udf.register("privateMean", privateMeanUdf)
     dataFrame.createOrReplaceTempView("test_table")
@@ -115,7 +123,7 @@ class AggregationSuiteCheck extends AnyFunSuite with DataFrameSuiteBase {
 
     // Apply on an untyped Dataset
     val privateQuantilesUdf= functions.udaf(privateQuantiles)
-    assert(dataFrame.groupBy("Day").agg(privateQuantilesUdf($"MoneySpent")).collectAsList().size() == 2)
+    assert(dataFrame.groupBy("Day").agg(privateQuantilesUdf($"MoneySpent")).collectAsList().size() == 4)
 
     spark.udf.register("privateQuantiles", privateQuantilesUdf)
     dataFrame.createOrReplaceTempView("test_table")

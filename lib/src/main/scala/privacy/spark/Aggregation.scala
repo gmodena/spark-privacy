@@ -11,9 +11,9 @@
  */
 package privacy.spark
 
-import org.apache.spark.sql.{DataFrame, Encoder, Encoders}
+import org.apache.spark.sql.{DataFrame, Encoder, Encoders, functions}
 import com.google.privacy.differentialprivacy.{BoundedMean, BoundedQuantiles, BoundedSum, Count}
-import org.apache.spark.sql.functions.{col, rand, row_number}
+import org.apache.spark.sql.functions.{col, rand, row_number, udaf}
 import org.apache.spark.sql.expressions.{Aggregator, Window}
 
 class PrivateCount[T](epsilon: Double, contribution: Int) extends Aggregator[T, Count, Long] {
@@ -118,17 +118,32 @@ class PrivateQuantiles[T: Numeric](epsilon: Double, contribution: Int, maxContri
   override def outputEncoder: Encoder[Double] = Encoders.scalaDouble
 }
 
-
+/* A utility function to pre-process `Dataframe`s and bound contribution on input data.
+ */
 object BoundContribution {
-  def apply(key: String, privacyKey: String, contributions: Int)(dataFrame: DataFrame): DataFrame =  {
-    val byCol = Window.partitionBy(key, privacyKey)
+  /**
+   * Limit the number of records contributed by  `privacyKey`
+   * to at most `maxContributions` in total, and at most `maxContributionsPerPartition`
+   * per partition `key`.
+   *
+   * @param key governs max contributions per partition.
+   * @param privacyKey governs max contributions.
+   * @param contributions max contributions of privacyKey.
+   * @param max contributions of `privacyKey` per partition `key`.
+   *
+  */
+  def apply(key: String, privacyKey: String, maxContributions: Int, maxContributionsPerPartition: Int = 1)(dataFrame: DataFrame): DataFrame =  {
+    val byContributionsPerPartition = Window.partitionBy(privacyKey, key)
+    val byContributions = Window.partitionBy(privacyKey)
+    val contributionsCol = "contributions"
+    val contributionsPerPartitionCol = "contributionsPerPartitionCol"
 
-    val tmpCol = "boundCount"
     dataFrame
-      .orderBy(rand()) // TODO(gmodena): how secure is this?
-      .withColumn(tmpCol, row_number over byCol.orderBy(key, privacyKey))
-      .where(col(tmpCol) <= contributions)
-      .drop(tmpCol)
+      .withColumn(contributionsPerPartitionCol, row_number over byContributionsPerPartition.orderBy(rand))
+      .where(col(contributionsPerPartitionCol) <= maxContributionsPerPartition)
+      .withColumn(contributionsCol, row_number over byContributions.orderBy(rand)) // TODO(gmodena): how secure is this?
+      .where(col(contributionsCol) <= maxContributions)
+      .drop(contributionsPerPartitionCol, contributionsCol)
   }
 }
 

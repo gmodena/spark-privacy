@@ -13,6 +13,7 @@ object DayCount extends App {
 
   val epsilon = Math.log(3)
   val maxContributions = 5
+  val maxContributionsPerPartition = 1
 
   val dataFrame = spark.read
     .option("delimiter", DayDataDelimiter)
@@ -22,8 +23,8 @@ object DayCount extends App {
   val privateCount = new PrivateCount[Long](epsilon, maxContributions)
   val privateCountUdf = udaf.register(privateCount)
 
-  // Restrict `maxContributions` of `VisitoryId` per `Day`.
-  dataFrame.transform(BoundContribution("Day", "VisitorId", maxContributions))
+  // Restrict `maxContributionsPerPartition` of `VisitoryId` per `Day`, and `maxContributions` in total
+  dataFrame.transform(BoundContribution("Day", "VisitorId", maxContributions, maxContributionsPerPartition))
     .groupBy("Day")
     .agg(privateCountUdf($"VisitorId"))
     .show
