@@ -23,7 +23,6 @@ class PrivateCount[T](epsilon: Double, contribution: Int) extends Aggregator[T, 
     .build()
 
   override def reduce(b: Count, a: T): Count = {
-    println(a, a.getClass)
     b.increment()
     b
   }
