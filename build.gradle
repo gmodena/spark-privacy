@@ -27,13 +27,52 @@ ext {
 sourceCompatibility = javaVersion
 targetCompatibility = javaVersion
 
+configurations {
+    privacyShadowJar
+}
+
 dependencies {
-    implementation "org.apache.spark:spark-core_${scalaVersion}:${sparkVersion}"
-    implementation "org.apache.spark:spark-sql_${scalaVersion}:${sparkVersion}"
-    implementation "com.google.privacy.differentialprivacy:differentialprivacy:${differentialPrivacyVersion}"
+    privacyShadowJar 'com.google.guava:guava:30.1.1-jre'
+    privacyShadowJar 'com.google.protobuf:protobuf-java:3.15.6'
+    implementation ( "org.apache.spark:spark-core_${scalaVersion}:${sparkVersion}" ) {
+        exclude group: "com.google.guava", module: "guava"
+    }
+    implementation ("org.apache.spark:spark-sql_${scalaVersion}:${sparkVersion}") {
+        exclude group: "com.google.guava", module: "guava"
+    }
+    privacyShadowJar "com.google.privacy.differentialprivacy:differentialprivacy:${differentialPrivacyVersion}"
+
     testImplementation "junit:junit:null"
     testImplementation "org.scalatest:scalatest_${scalaVersion}:3.1.2"
     testImplementation "org.scalatestplus:junit-4-12_${scalaVersion}:3.1.2.0"
     testImplementation "com.holdenkarau:spark-testing-base_${scalaVersion}:${sparkVersion}_1.1.0"
     testRuntimeOnly "org.scala-lang.modules:scala-xml_${scalaVersion}:1.2.0"
 }
+
+// make compileOnly dependencies available for tests:
+sourceSets {
+    main.java.srcDirs += 'lib/src/main/java'
+    main.scala.srcDirs += 'lib/src/main/scala'
+    main.compileClasspath += configurations.privacyShadowJar
+    main.runtimeClasspath += configurations.privacyShadowJar
+    test.compileClasspath += configurations.privacyShadowJar
+    test.runtimeClasspath += configurations.privacyShadowJar
+    javadoc.classpath += configurations.privacyShadowJar
+}
+
+//run.classpath = sourceSets.main.runtimeClasspath
+
+jar {
+    manifest {
+        attributes 'Built-By': System.getProperty('user.name'), 'Build-Jdk': System.getProperty('java.version')
+    }
+}
+
+shadowJar {
+    configurations = [project.configurations.privacyShadowJar]
+    mergeServiceFiles()
+
+    relocate "com.google", "spark.privacy.com.google"
+}
+
+assemble.dependsOn shadowJar
