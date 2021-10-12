@@ -4,8 +4,10 @@
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions
 import org.apache.spark.sql.functions.{col, count}
+import privacy.spark.{BoundContribution, PrivateCount}
 
 object DayCount extends App {
+  // Source dataset at https://raw.githubusercontent.com/google/differential-privacy/main/examples/java/week_data.csv
   final private val DayDataCsv = "week_data.csv"
   final private val DayDataDelimiter = ","
 
@@ -24,8 +26,7 @@ object DayCount extends App {
   val privateCountUdf = functions.udaf(privateCount)
 
   // Restrict `maxContributionsPerPartition` of `VisitoryId` per `Day`, and `maxContributions` in total
-  dataFrame.transform(BoundContribution("Day", "VisitorId", maxContributions, maxContributionsPerPartition)).show
-    .groupBy("Day")
-    .agg(privateCountUdf($"VisitorId") as "private_count", count($"VisitorId") as "non_private_count" )
+  dataFrame.transform(BoundContribution("Day", "VisitorId", maxContributions, maxContributionsPerPartition))
+    .groupBy("Day").agg(privateCountUdf($"VisitorId") as "private_count", count($"VisitorId") as "non_private_count" )
     .show
 }
