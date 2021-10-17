@@ -21,7 +21,10 @@ ext {
     javaVersion = '1.8'
     scalaVersion = '2.12'
     differentialPrivacyVersion = '1.1.0'
-    sparkVersion = '3.0.0'
+    sparkMajor = '2'
+    sparkMinor = '4'
+    sparkPatch = '5'
+    sparkVersion = "${sparkMajor}.${sparkMinor}.${sparkPatch}"
 }
 
 sourceCompatibility = javaVersion
@@ -51,8 +54,8 @@ dependencies {
 
 // make compileOnly dependencies available for tests:
 sourceSets {
-    main.java.srcDirs += 'lib/src/main/java'
-    main.scala.srcDirs += 'lib/src/main/scala'
+    main.java.srcDirs += "lib/src/main/${sparkMajor}.${sparkMinor}/java"
+    main.scala.srcDirs += "lib/src/main/${sparkMajor}.${sparkMinor}/scala"
     main.compileClasspath += configurations.privacyShadowJar
     main.runtimeClasspath += configurations.privacyShadowJar
     test.compileClasspath += configurations.privacyShadowJar
