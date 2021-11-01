@@ -18,7 +18,7 @@ The library can be build with:
 
 The goal of this repo is to explore scalable approaches for DP primitives.
 
-`privacy-saprk` wraps the Java API of [differential-privacy](https://github.com/google/differential-privacy/tree/main/examples/java).
+`privacy-spark` wraps the Java API of [differential-privacy](https://github.com/google/differential-privacy/tree/main/examples/java).
 Basic Laplacian Mechanism support is currently provided for BoundedMean, BoundedQuantiles, BoundedSum, Count
 aggregations.
 
@@ -51,8 +51,8 @@ class PrivateCount[T](epsilon: Double, contribution: Int) extends Aggregator[T, 
   override def outputEncoder: Encoder[Long] = Encoders.scalaLong
 }
 ```
-Note that this implementation violates the expected function input for typed Datasets (= a
-set of `Row`s). UDAFs are expected to be applied to `DataFrame`s by registering them with `functions.udafs`.
+Note that this implementation violates the expected `Aggregator` input for typed Datasets (= a
+set of `Row`s). This is currently intended behaviour. UDAFs are expected to be applied to `DataFrame`s by registering them with `functions.udafs`.
 This boundary should be made implicit in our implementation.
 
 A `PrivateCount` aggregation can be performed on a group of rows like any built-in aggregate function:
