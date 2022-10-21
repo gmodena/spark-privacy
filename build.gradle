@@ -17,6 +17,10 @@ repositories {
     mavenCentral()
 }
 
+
+group   'spark.privacy'
+version '1.1-SNAPSHOT'
+
 ext {
     javaVersion = '1.11'
     scalaVersion = '2.13'
@@ -59,8 +63,6 @@ sourceSets {
     test.runtimeClasspath += configurations.privacyShadowJar
     javadoc.classpath += configurations.privacyShadowJar
 }
-
-//run.classpath = sourceSets.main.runtimeClasspath
 
 jar {
     manifest {
