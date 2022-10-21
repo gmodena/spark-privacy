@@ -18,10 +18,10 @@ repositories {
 }
 
 ext {
-    javaVersion = '1.8'
-    scalaVersion = '2.12'
+    javaVersion = '1.11'
+    scalaVersion = '2.13'
     differentialPrivacyVersion = '1.1.0'
-    sparkVersion = '3.2.0'
+    sparkVersion = '3.2.2'
 }
 
 sourceCompatibility = javaVersion
