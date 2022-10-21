@@ -10,6 +10,7 @@ buildscript {
 plugins {
     id 'com.github.johnrengelman.shadow' version '7.0.0'
     id 'scala'
+    id 'maven-publish'
 }
 
 
@@ -78,3 +79,22 @@ shadowJar {
 }
 
 assemble.dependsOn shadowJar
+
+
+publishing {
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/gmodena/spark-privacy")
+            credentials {
+                username = project.findProperty("gpr.user") ?: System.getenv("GITHUB_ACTOR")
+                password = project.findProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN")
+            }
+        }
+    }
+    publications {
+        gpr(MavenPublication) {
+            from(components.java)
+        }
+    }
+}
