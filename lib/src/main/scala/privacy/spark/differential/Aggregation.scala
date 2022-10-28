@@ -1,4 +1,4 @@
-/*
+/**
  * A library of aggregation monoids to be applied on untyped datasets (`DataFrame` or `Dataset[Row]`) as registered
  * udfs.
  *
