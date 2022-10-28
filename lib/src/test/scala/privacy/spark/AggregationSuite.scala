@@ -8,6 +8,7 @@ import org.junit.runner.RunWith
 import org.scalatestplus.junit.JUnitRunner
 import com.holdenkarau.spark.testing.DataFrameSuiteBase
 import org.apache.spark.sql.{Dataset, functions}
+import privacy.spark.differential.{BoundContribution, PrivateCount, PrivateMean, PrivateQuantiles, PrivateSum}
 
 case class DayVisitor(VisitorId: String,
                       TimeEntered: String,

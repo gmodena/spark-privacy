@@ -9,7 +9,7 @@
  *
  *
  */
-package privacy.spark
+package privacy.spark.differential
 
 import org.apache.spark.sql.{DataFrame, Encoder, Encoders, functions}
 import com.google.privacy.differentialprivacy.{BoundedMean, BoundedQuantiles, BoundedSum, Count}
